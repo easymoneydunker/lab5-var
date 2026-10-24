@@ -108,30 +108,23 @@ static class Check
     {
         var f = new CriticalForm();
         f.Show();
-        var box = (PictureBox)Get(f, "pictureBox1");
         Click(f, "buttonStart");
         var t1 = (CriticalThread)Get(f, "thread1");
         var t2 = (CriticalThread)Get(f, "thread2");
 
-        int maxVisible = 0;
-        bool moved1 = false, moved2 = false;
-        int p1 = t1.X, p2 = t2.X;
-        bool shot = false;
-        var sw = Stopwatch.StartNew();
-        long firstTripMs = -1;
-        Pump(16000, () =>
+        bool both = false, waitSeen = false, shot = false;
+        Pump(20000, () =>
         {
-            bool v1 = t1.X > -t1.Picture.Width && t1.X < box.Width;
-            bool v2 = t2.X > -t2.Picture.Width && t2.X < box.Width;
-            maxVisible = Math.Max(maxVisible, (v1 ? 1 : 0) + (v2 ? 1 : 0));
-            if (t1.X != p1) moved1 = true;
-            if (t2.X != p2) moved2 = true;
-            if (firstTripMs < 0 && (t1.X > box.Width || t2.X > box.Width)) firstTripMs = sw.ElapsedMilliseconds;
-            if (!shot && (v1 || v2) && sw.ElapsedMilliseconds > 1500) { Shot(f, "critical"); shot = true; }
+            if (t1.OnBridge && t2.OnBridge) both = true;
+            bool w = (t1.OnBridge && t2.State.StartsWith("ждёт")) || (t2.OnBridge && t1.State.StartsWith("ждёт"));
+            if (w) waitSeen = true;
+            if (w && !shot) { Shot(f, "critical"); shot = true; }
         });
-        Console.WriteLine($"first trip across: {firstTripMs} ms");
-        Ok(maxVisible == 1, $"never more than one car visible (max={maxVisible})");
-        Ok(moved1 && moved2, "both cars moved");
+        if (!shot) Shot(f, "critical");
+        Console.WriteLine($"passes {t1.Passes} / {t2.Passes}");
+        Ok(!both, "never two cars on the bridge");
+        Ok(waitSeen, "one car waited for the section");
+        Ok(t1.Passes > 0 && t2.Passes > 0, "both cars crossed the bridge");
 
         ((TrackBar)Get(f, "trackBar1")).Value = 4;
         Call(f, "trackBar1_Scroll");
@@ -209,13 +202,15 @@ static class Check
         var prob = (NumericUpDown)Get(f, "numericUpDown2");
         prob.Value = 0;
         Click(f, "buttonStart");
-        var t = (EventThread)Get(f, "thread1");
+        var t1 = (EventThread)Get(f, "thread1");
+        var t2 = (EventThread)Get(f, "thread2");
         Pump(9000);
-        int x = t.X;
+        int x1 = t1.X, x2 = t2.X;
         Pump(1500);
-        Console.WriteLine($"stopped at X={x}");
-        Ok(x == t.X && x > 300, "car waits at the stop without passengers");
-        Ok(t.Count == 0, "no passengers with probability 0");
+        Shot(f, "event-wait");
+        Console.WriteLine($"stopped at {x1} / {x2}, states: {t1.State} / {t2.State}");
+        Ok(x1 == t1.X && x2 == t2.X && x1 > 300 && x2 > 300, "both taxis wait at the stop");
+        Ok(!f.EventIsSet && f.Count == 0, "event is reset without passengers");
         Click(f, "buttonFinish");
         Pump(200);
         long ms = Timed(() => Click(f, "buttonFinish"));
@@ -224,23 +219,27 @@ static class Check
         prob.Value = 100;
         ((NumericUpDown)Get(f, "numericUpDown1")).Value = 100;
         Click(f, "buttonStart");
-        t = (EventThread)Get(f, "thread1");
-        int minX = int.MaxValue, maxX = int.MinValue, maxCount = 0;
-        bool shot = false;
-        var sw = Stopwatch.StartNew();
-        Pump(14000, () =>
+        t1 = (EventThread)Get(f, "thread1");
+        t2 = (EventThread)Get(f, "thread2");
+        int maxCount = 0;
+        bool badEvent = false;
+        Pump(15000, () =>
         {
-            if (sw.ElapsedMilliseconds > 5000)
-            {
-                minX = Math.Min(minX, t.X);
-                maxX = Math.Max(maxX, t.X);
-            }
-            maxCount = Math.Max(maxCount, t.Count);
-            if (!shot && sw.ElapsedMilliseconds > 4000) { Shot(f, "event"); shot = true; }
+            int c = f.Count;
+            maxCount = Math.Max(maxCount, c);
+            if (c > 2 && !f.EventIsSet) badEvent = true;
         });
-        Console.WriteLine($"X range {minX}..{maxX}, max queue {maxCount}");
-        Ok(minX < 50, "with passengers the car drives back");
+        Console.WriteLine($"delivered {t1.Delivered} / {t2.Delivered}, max queue {maxCount}");
+        Ok(t1.Delivered > 0 && t2.Delivered > 0, "both taxis deliver passengers");
         Ok(maxCount > 3, "passengers accumulate");
+        Ok(!badEvent, "event is set while passengers wait");
+        Click(f, "buttonFinish"); Pump(200); Click(f, "buttonFinish");
+
+        prob.Value = 20;
+        ((NumericUpDown)Get(f, "numericUpDown1")).Value = 500;
+        Click(f, "buttonStart");
+        Pump(9000);
+        Shot(f, "event");
         StopAndClose(f, "thread1");
     }
 
