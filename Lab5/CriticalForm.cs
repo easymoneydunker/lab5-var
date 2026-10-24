@@ -21,8 +21,8 @@ public partial class CriticalForm : Form
     {
         if (thread1 == null)
         {
-            thread1 = new CriticalThread(taxi00, taxi01, pictureBox1, section);
-            thread2 = new CriticalThread(rtaxi00, rtaxi01, pictureBox1, section);
+            thread1 = new CriticalThread("Такси", taxi00, taxi01, pictureBox1, section, 15);
+            thread2 = new CriticalThread("Машина", rtaxi00, rtaxi01, pictureBox1, section, 70);
             thread1.Start();
             thread2.Start();
             thread1.Priority = (ThreadPriority)trackBar1.Value;
@@ -86,16 +86,52 @@ public partial class CriticalForm : Form
 
     private void ShowPriorities()
     {
-        label1.Text = "Такси (жёлтое): " + (ThreadPriority)trackBar1.Value;
-        label2.Text = "Машина (красная): " + (ThreadPriority)trackBar2.Value;
+        label1.Text = "Приоритет такси: " + (ThreadPriority)trackBar1.Value;
+        label2.Text = "Приоритет машины: " + (ThreadPriority)trackBar2.Value;
     }
 
     private void pictureBox1_Paint(object sender, PaintEventArgs e)
     {
+        Graphics g = e.Graphics;
+        int left = CriticalThread.BridgeLeft;
+        int width = CriticalThread.BridgeRight - CriticalThread.BridgeLeft;
+
+        g.FillRectangle(Brushes.DimGray, 0, 10, pictureBox1.Width, 50);
+        g.FillRectangle(Brushes.DimGray, 0, 65, pictureBox1.Width, 50);
+
+        CriticalThread owner = null;
+        if (thread1 != null && thread1.OnBridge)
+            owner = thread1;
+        if (thread2 != null && thread2.OnBridge)
+            owner = thread2;
+
+        using (SolidBrush bridge = new SolidBrush(owner == null ? Color.FromArgb(120, Color.LimeGreen) : Color.FromArgb(120, Color.OrangeRed)))
+            g.FillRectangle(bridge, left, 5, width, 115);
+        g.DrawRectangle(Pens.Black, left, 5, width, 115);
+        g.DrawString("МОСТ (критическая секция)", Font, Brushes.White, left + 4, 47);
+
         if (thread1 != null)
-            e.Graphics.DrawImage(thread1.Picture, thread1.X, thread1.Y);
+            g.DrawImage(thread1.Picture, thread1.X, thread1.Y);
         if (thread2 != null)
-            e.Graphics.DrawImage(thread2.Picture, thread2.X, thread2.Y);
+            g.DrawImage(thread2.Picture, thread2.X, thread2.Y);
+
+        string bridgeText = owner == null ? "Секция свободна" : "Секция занята: " + owner.Name;
+        g.DrawString(bridgeText, Font, owner == null ? Brushes.Green : Brushes.Red, 470, 125);
+        DrawStatus(g, thread1, 5, 125);
+        DrawStatus(g, thread2, 5, 142);
+    }
+
+    private void DrawStatus(Graphics g, CriticalThread t, int x, int y)
+    {
+        if (t == null)
+            return;
+
+        Brush brush = Brushes.Black;
+        if (t.OnBridge)
+            brush = Brushes.Red;
+        else if (t.State.StartsWith("ждёт"))
+            brush = Brushes.DarkOrange;
+        g.DrawString(t.Name + ": " + t.State + " (проездов: " + t.Passes + ")", Font, brush, x, y);
     }
 
     private void CriticalForm_FormClosing(object sender, FormClosingEventArgs e)
