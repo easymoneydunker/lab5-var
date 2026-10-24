@@ -1,0 +1,23 @@
+name: win-check
+on:
+  push:
+    branches: [win-check]
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build lab
+        run: dotnet build Lab5.sln -c Release
+      - name: Run UI check
+        timeout-minutes: 6
+        run: dotnet run --project WinCheck -c Release
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shots
+          path: shots
