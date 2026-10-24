@@ -67,14 +67,14 @@ public class MutexThread : MoveThread
     private void DoVisualSwap()
     {
         Picture = b0;
-        X += 2;
+        X += 4;
         Box.Invalidate();
     }
 
     private void DoVisual()
     {
         Picture = b1;
-        X -= 2;
+        X -= 4;
         Box.Invalidate();
     }
 }

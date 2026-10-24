@@ -64,14 +64,14 @@ public class DropThread : MoveThread
 
     private void DoMoveUp()
     {
-        I -= 3;
+        I -= 5;
         Box.Invalidate();
     }
 
     private void DoMoveDown()
     {
         Up = false;
-        I += 3;
+        I += 5;
         Box.Invalidate();
     }
 
