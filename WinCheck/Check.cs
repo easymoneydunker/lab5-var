@@ -164,7 +164,7 @@ static class Check
         {
             if (s1 < 0 && t1.X > -t1.Picture.Width) s1 = sw.ElapsedMilliseconds;
             if (s2 < 0 && t2.X > -t2.Picture.Width) s2 = sw.ElapsedMilliseconds;
-            if (leftAt < 0 && (t1.X > f.Width - 30 || t2.X > f.Width - 30)) leftAt = sw.ElapsedMilliseconds;
+            if (leftAt < 0 && (t1.X > 655 || t2.X > 655)) leftAt = sw.ElapsedMilliseconds;
         });
         return (s1, s2);
     }
