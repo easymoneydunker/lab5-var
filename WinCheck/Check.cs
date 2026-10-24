@@ -149,8 +149,11 @@ static class Check
         StopAndClose(f, "thread1");
     }
 
+    static long leftAt;
+
     static (long, long) MutexLag(MutexForm f, int time, int ms)
     {
+        leftAt = -1;
         ((NumericUpDown)Get(f, "numericUpDown1")).Value = time;
         Click(f, "buttonStart");
         var t1 = (MutexThread)Get(f, "thread1");
@@ -161,6 +164,7 @@ static class Check
         {
             if (s1 < 0 && t1.X > -t1.Picture.Width) s1 = sw.ElapsedMilliseconds;
             if (s2 < 0 && t2.X > -t2.Picture.Width) s2 = sw.ElapsedMilliseconds;
+            if (leftAt < 0 && (t1.X > f.Width - 30 || t2.X > f.Width - 30)) leftAt = sw.ElapsedMilliseconds;
         });
         return (s1, s2);
     }
@@ -185,8 +189,8 @@ static class Check
 
         (a, b) = MutexLag(f, 10000, 12000);
         lag = Math.Abs(a - b);
-        Console.WriteLine($"time=10000: starts {a} / {b}, lag {lag} ms");
-        Ok(a >= 0 && b >= 0 && lag > 2000, "with big time cars go one after another");
+        Console.WriteLine($"time=10000: starts {a} / {b}, first car left at {leftAt} ms");
+        Ok(a >= 0 && b >= 0 && leftAt > 0 && Math.Max(a, b) >= leftAt - 100, "with big time second car waits until first releases mutex");
 
         Click(f, "buttonFinish");
         Pump(200);
