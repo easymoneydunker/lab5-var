@@ -2,73 +2,73 @@ namespace Lab5;
 
 public class EventThread : MoveThread
 {
+    public const int StopX = 560;
+
     private readonly Bitmap b0;
     private readonly Bitmap b1;
-    private readonly ManualResetEvent e = new ManualResetEvent(false);
-    private int count;
+    private readonly EventForm form;
 
+    public readonly string Name;
     public int X;
     public int Y;
     public Bitmap Picture;
+    public string State = "стоит";
+    public int Delivered;
 
-    public EventThread(Bitmap empty, Bitmap withPassenger, PictureBox box) : base(box)
+    public EventThread(string name, Bitmap empty, Bitmap withPassenger, PictureBox box, EventForm form, int y) : base(box)
     {
+        Name = name;
         b0 = empty;
         b1 = withPassenger;
+        this.form = form;
         Picture = b0;
         X = -b0.Width;
-        Y = box.Height - b0.Height - 10;
-    }
-
-    public int Count
-    {
-        get { return Volatile.Read(ref count); }
-    }
-
-    public void AddPassenger()
-    {
-        Interlocked.Increment(ref count);
-        e.Set();
+        Y = y;
     }
 
     protected override void Execute()
     {
         while (!Terminated)
         {
-            while (!Terminated && X <= Box.Width - b0.Width - 50)
+            State = "едет к остановке";
+            Picture = b0;
+            while (!Terminated && X < StopX - b0.Width)
                 Synchronize(DoVisualSwap);
 
-            WaitPassenger();
+            State = "ждёт пассажира (WaitOne)";
+            Synchronize(Box.Invalidate);
+            if (!WaitPassenger())
+                break;
 
-            while (!Terminated && X >= -b0.Width)
+            State = "везёт пассажира";
+            Picture = b1;
+            while (!Terminated && X > -b0.Width)
                 Synchronize(DoVisual);
+
+            if (!Terminated)
+                Delivered++;
         }
-        e.Dispose();
     }
 
-    private void WaitPassenger()
+    private bool WaitPassenger()
     {
-        e.Reset();
-        while (!Terminated && Count <= 0)
+        while (!Terminated)
         {
-            WaitHandle.WaitAny(new WaitHandle[] { e, StopEvent });
-            e.Reset();
+            if (form.TakePassenger())
+                return true;
+            WaitHandle.WaitAny(new WaitHandle[] { form.passengerEvent, StopEvent });
         }
-
-        if (!Terminated)
-            Interlocked.Decrement(ref count);
+        return false;
     }
 
     private void DoVisualSwap()
     {
-        Picture = b0;
         X += 4;
         Box.Invalidate();
     }
 
     private void DoVisual()
     {
-        Picture = b1;
         X -= 4;
         Box.Invalidate();
     }
