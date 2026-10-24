@@ -337,7 +337,7 @@ protected override void Execute()
 private void DoVisualSwap()
 {
     Picture = b0;
-    X += 2;
+    X += 4;
     Box.Invalidate();
 }
 ```
